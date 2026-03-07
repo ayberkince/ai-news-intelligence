@@ -1,0 +1,6 @@
+2026-03-07 16:01:44,975 - INFO - Starting AI News Intelligence ingestion pipeline...
+2026-03-07 16:01:44,975 - INFO - Fetching news from https://newsapi.org/v2/top-headlines...
+2026-03-07 16:01:45,158 - INFO - Successfully fetched 18 articles.
+2026-03-07 16:01:45,159 - INFO - Filtered 18 raw articles down to 18 valid articles.
+2026-03-07 16:01:45,159 - INFO - Successfully saved 18 articles to data/news.json.
+2026-03-07 16:01:45,160 - INFO - Pipeline execution completed successfully.
