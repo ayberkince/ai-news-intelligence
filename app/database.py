@@ -32,8 +32,8 @@ def init_db() -> None:
         logger.error(f"Database initialization failed: {e}")
         raise
 
-def insert_articles(articles: List[Dict[str, Any]]) -> None:
-    """Inserts cleaned articles into the database, ignoring historical duplicates."""
+def insert_articles(articles: List[Dict[str, Any]]) -> int:
+    """Inserts cleaned articles into the database and returns the count of new inserts."""
     logger.info(f"Attempting to insert {len(articles)} articles into the database...")
     inserted_count: int = 0
     
@@ -53,11 +53,11 @@ def insert_articles(articles: List[Dict[str, Any]]) -> None:
                     ))
                     inserted_count += 1
                 except sqlite3.IntegrityError:
-                    # Duplicate URL found in historical data. We silently ignore it.
                     continue
             conn.commit()
             
-        logger.info(f"Successfully inserted {inserted_count} new articles. Ignored {len(articles) - inserted_count} historical duplicates.")
+        logger.info(f"Successfully inserted {inserted_count} new articles.")
+        return inserted_count
     except sqlite3.Error as e:
         logger.error(f"Failed to insert articles: {e}")
-        raise
+        return 0

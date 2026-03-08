@@ -1,12 +1,13 @@
 import sys
 import os
 import streamlit as st
+import time
 
-# Ensure Python can find the 'app' module
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.queries import count_articles, get_latest_articles, get_top_sources, get_all_sources
 from app.ai_summary import summarize_articles
+from app.pipeline import run_ingestion_pipeline
 
 st.set_page_config(page_title="AI News Intelligence", page_icon="📰", layout="wide")
 
@@ -31,13 +32,22 @@ def load_top_sources():
 with st.sidebar:
     st.header("🎛️ Dashboard Controls")
     
-    article_limit = st.slider("Number of articles to analyze", min_value=3, max_value=20, value=5)
+    if st.button("📥 Fetch New Articles", type="primary", use_container_width=True):
+        with st.spinner("Running ETL Pipeline..."):
+            result = run_ingestion_pipeline()
+            st.success(f"Added {result['inserted_count']} new articles!")
+            time.sleep(2) # Give the user time to read the success message
+            st.cache_data.clear() # CRITICAL: Wipe old memory
+            st.rerun() # Refresh page with new DB data
+            
+    st.markdown("---")
     
+    article_limit = st.slider("Number of articles to analyze", min_value=3, max_value=20, value=5)
     available_sources = load_sources()
     selected_source = st.selectbox("Filter by source", available_sources)
     
     st.markdown("---")
-    generate_summary = st.button("🧠 Generate AI Summary", type="primary", use_container_width=True)
+    generate_summary = st.button("🧠 Generate AI Summary", use_container_width=True)
     
     st.markdown("---")
     if st.button("🔄 Refresh Data", use_container_width=True):
@@ -60,7 +70,6 @@ with col2:
     st.metric("Displayed Articles", len(latest_articles))
 
 st.markdown("---")
-
 col_news, col_sources = st.columns([2, 1])
 
 with col_news:
@@ -87,6 +96,6 @@ if generate_summary:
             st.success("Analysis Complete")
             st.write(summary)
     else:
-        st.warning("No articles available for summarization based on your current filters.")
+        st.warning("No articles available for summarization.")
 else:
     st.info("Click 'Generate AI Summary' in the sidebar to synthesize the visible articles.")
