@@ -1,47 +1,62 @@
-import logging
-from google import genai
-from typing import List, Tuple
+import google.generativeai as genai
 from app.config import GEMINI_API_KEY
+import json
+import logging
 
 logger = logging.getLogger(__name__)
 
-# Defensive engineering: Fail fast if the key is missing
-if not GEMINI_API_KEY:
-    logger.error("GEMINI_API_KEY is missing. Check your .env file.")
-    raise ValueError("Missing Gemini API Key")
+genai.configure(api_key=GEMINI_API_KEY)
 
-# Initialize the modern GenAI client
-client = genai.Client(api_key=GEMINI_API_KEY)
+# Initialize the model
+model = genai.GenerativeModel("gemini-2.5-flash")
 
-def summarize_articles(articles: List[Tuple[str, str, str]]) -> str:
-    """Sends article headlines to Gemini and returns an AI-generated summary."""
+def summarize_articles(articles):
     if not articles:
-        logger.warning("No articles provided to summarize.")
-        return "No news available to summarize."
+        return {"summary": "No news available.", "topics": []}
 
-    logger.info(f"Sending {len(articles)} articles to Gemini for summarization...")
+    headlines = "\n".join([f"- {title} ({source})" for title, source, _ in articles])
+
+    prompt = f"""
+    You are a financial news aggregator. Analyze these headlines and return a JSON object.
     
-    # Transform the structured data into a text prompt
-    headlines: str = "\n".join([f"- {title} (Source: {source})" for title, source, _ in articles])
-    
-    prompt: str = f"""
-    You are a professional financial and global news analyst.
-    Summarize the key themes and events in these news headlines.
-    
+    JSON Structure:
+    {{
+      "summary": "A 2-3 sentence overview of these events.",
+      "topics": ["Topic1", "Topic2", "Topic3"]
+    }}
+
     Headlines:
     {headlines}
-    
-    Write a short, concise paragraph summarizing the main trends. Do not use bullet points.
     """
-    
+
+    # NEW: Safety Settings to prevent the 'System Error' on sensitive news
+    safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+    ]
+
     try:
-        # Modern SDK syntax using the latest flash model
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
+        response = model.generate_content(
+            prompt, 
+            generation_config={"response_mime_type": "application/json"},
+            safety_settings=safety_settings
         )
-        logger.info("Successfully received AI summary from Gemini.")
-        return response.text
+        
+        # Clean up the response text
+        raw_text = response.text.strip()
+        parsed = json.loads(raw_text)
+        
+        return {
+            "summary": parsed.get("summary", "Summary generation successful."),
+            "topics": parsed.get("topics", ["Market Update"])
+        }
+        
     except Exception as e:
-        logger.error(f"Gemini API call failed: {e}")
-        return "Error generating AI summary."
+        logger.error(f"AI Generation Failed: {e}")
+        # If it still fails, let's see why
+        return {
+            "summary": f"**System Error:** {str(e)}",
+            "topics": ["System Error"]
+        }

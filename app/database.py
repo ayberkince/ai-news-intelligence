@@ -12,11 +12,13 @@ def get_connection() -> sqlite3.Connection:
     return sqlite3.connect(DB_PATH)
 
 def init_db() -> None:
-    """Initializes the SQLite database and creates the articles table."""
+    """Initializes the SQLite database and safely migrates the schema."""
     logger.info("Initializing database schema...")
     try:
         with get_connection() as conn:
             cursor = conn.cursor()
+            
+            # 1. The Real Articles Table (Restored)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS articles (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,11 +28,32 @@ def init_db() -> None:
                     url TEXT UNIQUE NOT NULL
                 )
             ''')
+            
+            # 2. The Summaries Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS summaries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    summary_text TEXT NOT NULL,
+                    source_filter TEXT,
+                    article_limit INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 3. DAY 12 MIGRATION: Safely add the topics column if it doesn't exist
+            try:
+                cursor.execute("ALTER TABLE summaries ADD COLUMN topics TEXT")
+                logger.info("Migration successful: Added 'topics' column to summaries.")
+            except sqlite3.OperationalError:
+                # Column already exists, safe to ignore
+                pass
+                
             conn.commit()
-        logger.info("Database schema verified.")
     except sqlite3.Error as e:
         logger.error(f"Database initialization failed: {e}")
         raise
+
+
 
 def insert_articles(articles: List[Dict[str, Any]]) -> int:
     """Inserts cleaned articles into the database and returns the count of new inserts."""
@@ -61,3 +84,16 @@ def insert_articles(articles: List[Dict[str, Any]]) -> int:
     except sqlite3.Error as e:
         logger.error(f"Failed to insert articles: {e}")
         return 0
+    
+def save_summary(summary_text: str, topics: str, source_filter: str, article_limit: int) -> None:
+    """Persists an AI-generated summary and structured topics to the database."""
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO summaries (summary_text, topics, source_filter, article_limit)
+                VALUES (?, ?, ?, ?)
+            """, (summary_text, topics, source_filter, article_limit))
+            conn.commit()
+    except sqlite3.Error as e:
+        logger.error(f"Failed to save summary: {e}")

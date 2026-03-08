@@ -3,11 +3,7 @@ import requests
 from typing import List, Dict, Any
 from app.config import NEWS_API_KEY
 
-# Configure telemetry
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+
 
 NEWS_URL: str = "https://newsapi.org/v2/top-headlines"
 
