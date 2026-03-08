@@ -3,35 +3,33 @@ from app.logger import setup_logger
 from app.fetch_news import fetch_news
 from app.clean_data import clean_articles
 from app.database import init_db, insert_articles
-from app.queries import count_articles, get_latest_articles, get_top_sources
+from app.queries import get_latest_articles
+from app.ai_summary import summarize_articles
 
 def main() -> None:
     logger = setup_logger()
-    logger.info("Starting AI News Intelligence ingestion pipeline...")
+    logger.info("Starting AI News Intelligence pipeline...")
     
     try:
-        # --- WRITE PATH (Ingestion) ---
+        # 1. State Initialization
         init_db()
+        
+        # 2. Extract, Transform, Load (ETL)
         raw_articles = fetch_news()
         cleaned_articles = clean_articles(raw_articles)
         insert_articles(cleaned_articles)
         
-        # --- READ PATH (Analytics) ---
+        # 3. Query State
+        latest_articles = get_latest_articles(limit=10)
+        
+        # 4. Artificial Intelligence Synthesis
+        summary = summarize_articles(latest_articles)
+        
+        # 5. Output
         print("\n" + "="*50)
-        print("📊 AI NEWS INTELLIGENCE REPORT")
-        print("="*50)
-        
-        total = count_articles()
-        print(f"\nTotal Stored Articles: {total}\n")
-        
-        print("🔥 Latest Headlines:")
-        for title, source, published_at in get_latest_articles(5):
-            print(f"  - [{source}] {title}")
-            
-        print("\n📈 Top Sources:")
-        for source, count in get_top_sources(3):
-            print(f"  - {source}: {count} articles")
-            
+        print("🧠 AI NEWS INTELLIGENCE SUMMARY")
+        print("="*50 + "\n")
+        print(summary.strip())
         print("\n" + "="*50 + "\n")
             
         logger.info("Pipeline execution completed successfully.")
