@@ -39,6 +39,23 @@ def init_db() -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS reports (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    report_timestamp TEXT,
+                    total_articles INTEGER,
+                    displayed_articles INTEGER,
+                    what_matters_now TEXT,
+                    summary_text TEXT,
+                    dominant_topics TEXT,
+                    top_sources TEXT,
+                    source_filter TEXT,
+                    article_limit INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.commit()
             
             # 3. DAY 12 MIGRATION: Safely add the topics column if it doesn't exist
             try:
@@ -53,6 +70,37 @@ def init_db() -> None:
         logger.error(f"Database initialization failed: {e}")
         raise
 
+def save_report(report: dict) -> None:
+    """Persists a generated intelligence report to the database."""
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Convert lists of tuples into readable strings for SQLite storage
+            dominant_topics_text = ", ".join([f"{t}:{c}" for t, c in report.get("top_topics", [])])
+            top_sources_text = ", ".join([f"{s}:{c}" for s, c in report.get("top_sources", [])])
+
+            cursor.execute("""
+                INSERT INTO reports (
+                    report_timestamp, total_articles, displayed_articles,
+                    what_matters_now, summary_text, dominant_topics,
+                    top_sources, source_filter, article_limit
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                report.get("report_timestamp"),
+                report.get("total_articles"),
+                report.get("displayed_articles"),
+                report.get("what_matters_now"),
+                report.get("summary_text"),
+                dominant_topics_text,
+                top_sources_text,
+                report.get("source_filter"),
+                report.get("article_limit")
+            ))
+            conn.commit()
+    except sqlite3.Error as e:
+        logger.error(f"Failed to save report snapshot: {e}")
 
 
 def insert_articles(articles: List[Dict[str, Any]]) -> int:

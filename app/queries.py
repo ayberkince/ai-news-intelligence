@@ -135,3 +135,22 @@ def get_summary_topics(limit: int = 50) -> List[Tuple[str, str]]:
     except sqlite3.Error as e:
         logger.error(f"Failed to fetch topic history: {e}")
         return []
+    
+def get_report_history(limit: int = 20):
+    """Retrieves a history of saved intelligence reports."""
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    id, report_timestamp, total_articles, displayed_articles,
+                    what_matters_now, summary_text, dominant_topics,
+                    top_sources, source_filter, article_limit, created_at
+                FROM reports
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (limit,))
+            return cursor.fetchall()
+    except sqlite3.Error as e:
+        logger.error(f"Failed to fetch report history: {e}")
+        return []
